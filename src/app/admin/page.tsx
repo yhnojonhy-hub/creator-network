@@ -16,7 +16,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       <h2>Pedidos de estúdio</h2>
       {queue.creators.length === 0 ? <p>Nenhum pedido de estúdio.</p> : null}
       {queue.creators.map((creator) => (
-        <article key={creator.id} className="my-6">
+        <article key={creator.id} className="panel">
           <h3>{creator.displayName}</h3>
           <p>{creator.bio}</p>
           <StateMark status="pending" />
@@ -29,7 +29,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
               <input name="reason" defaultValue="revisão humana" required />
             </label>
             <p>
-              <button type="submit">Aprovar estúdio</button>
+              <button type="submit" className="amber">Aprovar estúdio</button>
             </p>
           </form>
           <form action="/api/admin/criador" method="post">
@@ -49,7 +49,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       <h2>Posts em quarentena</h2>
       {queue.posts.length === 0 ? <p>Nenhum post em quarentena.</p> : null}
       {queue.posts.map((post) => (
-        <article key={post.id} className="quarantine">
+        <article key={post.id} className="panel hold">
           <h3>{post.title}</h3>
           <p>{post.body}</p>
           <p>{post.creator.displayName}</p>
@@ -59,7 +59,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
             <img
               key={media.id}
               alt={post.title}
-              className="mt-3 max-w-full"
+              style={{ maxWidth: "100%", borderRadius: "12px", display: "block", margin: "0.6rem 0" }}
               src={`/media/${media.id}?token=${encodeURIComponent(signMediaToken(media.id, user.id))}`}
             />
           ))}
@@ -72,7 +72,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
               <input name="reason" defaultValue="revisão humana" required />
             </label>
             <p>
-              <button type="submit">Aprovar post</button>
+              <button type="submit" className="amber">Aprovar post</button>
             </p>
           </form>
           <form action="/api/admin/post" method="post">

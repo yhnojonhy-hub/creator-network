@@ -72,6 +72,7 @@ export async function eraseAccount(userId: string) {
       passwordHash: "apagada",
       displayName: "Conta encerrada",
       bio: "",
+      avatarName: "",
       deletedAt: new Date(),
     },
   });

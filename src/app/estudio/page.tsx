@@ -1,5 +1,7 @@
-import { Balance, ErrorNote, KeyField, Money, Shell, StateMark } from "@/components/Shell";
+import Link from "next/link";
+import { Avatar, Balance, ErrorNote, KeyField, Money, Shell, StateMark } from "@/components/Shell";
 import { hasValidConsent } from "@/domain/visibility";
+import { db } from "@/server/db";
 import { pageUser } from "@/server/guard";
 import { signMediaToken } from "@/server/media-token";
 import { studioData } from "@/server/read";
@@ -10,10 +12,16 @@ export default async function StudioPage({ searchParams }: { searchParams: Promi
   if (user.creatorStatus !== "approved") {
     return (
       <Shell user={user}>
-        <h1>Pedido de estúdio</h1>
-        <StateMark status={user.creatorStatus === "none" ? "none" : user.creatorStatus} />
+        <h1>Publicar no Estúdio</h1>
+        <p className="meta">
+          Quem publica pede acesso e entra depois de uma revisão humana. Você precisa de um nome público e de uma
+          apresentação.
+        </p>
+        <p>
+          <StateMark status={user.creatorStatus === "none" ? "none" : user.creatorStatus} />
+        </p>
         <ErrorNote message={erro} />
-        {user.creatorStatus === "pending" ? <p>O estúdio espera aprovação humana.</p> : null}
+        {user.creatorStatus === "pending" ? <p>Seu pedido está na fila de revisão. Você recebe o estúdio assim que alguém aprovar.</p> : null}
         {user.creatorStatus !== "pending" ? (
           <form action="/api/criador/aplicar" method="post">
             <input type="hidden" name="voltar" value="/estudio" />
@@ -22,147 +30,200 @@ export default async function StudioPage({ searchParams }: { searchParams: Promi
               <input name="displayName" defaultValue={user.displayName} required minLength={2} maxLength={80} />
             </label>
             <label>
-              Bio
-              <textarea name="bio" required minLength={10} maxLength={500} defaultValue={user.bio} />
+              Apresentação
+              <span className="help">De 10 a 500 caracteres. Aparece na página do seu estúdio.</span>
+              <textarea name="bio" required minLength={10} maxLength={500} defaultValue={user.bio} rows={4} />
             </label>
-            <p>
-              <button type="submit">Pedir acesso ao estúdio</button>
+            <p className="actions">
+              <button type="submit" className="amber">
+                Pedir acesso ao estúdio
+              </button>
             </p>
           </form>
         ) : null}
       </Shell>
     );
   }
-  const data = await studioData(user.id);
+  const [data, row] = await Promise.all([
+    studioData(user.id),
+    db.user.findUnique({ where: { id: user.id }, select: { avatarName: true } }),
+  ]);
   return (
     <Shell user={user}>
-      <h1>Estúdio de {user.displayName}</h1>
+      <div className="creator-head">
+        <Avatar userId={user.id} name={user.displayName} hasAvatar={Boolean(row?.avatarName)} size="lg" />
+        <div>
+          <h1>{user.displayName}</h1>
+          <p className="bio">{user.bio}</p>
+          <p style={{ margin: "0.5rem 0 0" }}>
+            <Link href={`/criador/${user.id}`}>Ver como o público vê</Link> · <Link href="/conta">Trocar a imagem</Link>
+          </p>
+        </div>
+      </div>
       <ErrorNote message={erro} />
+
       <Balance cents={data.posted} caption="Saldo lançado" />
-      <p>
-        Em reserva <Money cents={Math.abs(data.reserved)} />
-      </p>
-      <section className="grid gap-2">
-        <h2>Relação com quem acompanha</h2>
-        <p>
-          Assinantes novos em 7 dias <span className="text-signal">{data.newSubscribers}</span>
-        </p>
-        <p>
-          Risco de cancelamento <span className="text-signal">{data.cancellationRisk}</span>
-        </p>
-        <p>
-          Compradores de arquivo avulso <span className="text-signal">{data.ppvBuyers}</span>
-        </p>
-      </section>
-      <form action="/api/repasse" method="post">
-        <input type="hidden" name="voltar" value="/estudio" />
+      <div className="stats">
+        <div>
+          <strong>
+            <Money cents={Math.abs(data.reserved)} />
+          </strong>
+          <span>em reserva</span>
+        </div>
+        <div>
+          <strong>{data.newSubscribers}</strong>
+          <span>assinantes novos em 7 dias</span>
+        </div>
+        <div>
+          <strong>{data.ppvBuyers}</strong>
+          <span>compradores de arquivo avulso</span>
+        </div>
+        <div>
+          <strong>{data.cancellationRisk}</strong>
+          <span>risco de cancelamento</span>
+        </div>
+      </div>
+
+      <section className="panel">
         <h2>Repasse</h2>
-        <p>O repasse é simulado. Não há KYC real. O pedido cria uma reserva, que é um lançamento ainda não postado.</p>
-        <label>
-          Valor em centavos
-          <input name="amountCents" inputMode="numeric" required min={100} />
-        </label>
-        <KeyField />
-        <p>
-          <button type="submit">Pedir repasse</button>
+        <p className="meta">
+          Simulado, sem KYC. O pedido cria uma reserva no livro-caixa e fica registrado na auditoria.
         </p>
-      </form>
-      <form action="/api/estudio/post" method="post" encType="multipart/form-data">
-        <input type="hidden" name="voltar" value="/estudio" />
+        <form action="/api/repasse" method="post">
+          <input type="hidden" name="voltar" value="/estudio" />
+          <label>
+            Valor em centavos
+            <input name="amountCents" inputMode="numeric" required min={100} placeholder="ex.: 5000 para R$ 50,00" />
+          </label>
+          <KeyField />
+          <p className="actions">
+            <button type="submit">Pedir repasse</button>
+          </p>
+        </form>
+      </section>
+
+      <section className="panel">
         <h2>Novo post</h2>
-        <p>O envio entra em quarentena. Publica depois da revisão humana e de um consentimento.</p>
-        <label>
-          Título
-          <input name="title" required minLength={3} maxLength={80} />
-        </label>
-        <label>
-          Texto
-          <textarea name="body" required minLength={10} maxLength={2000} />
-        </label>
-        <label>
-          Preço em centavos
-          <input name="priceCents" inputMode="numeric" required defaultValue="0" />
-        </label>
-        <label>
-          Arquivo jpeg, png ou webp
-          <input name="arquivo" type="file" accept="image/jpeg,image/png,image/webp" />
-        </label>
-        <p>
-          <button type="submit">Enviar para quarentena</button>
-        </p>
-      </form>
+        <p className="meta">O envio entra em quarentena e só publica depois da revisão humana e de um consentimento.</p>
+        <form action="/api/estudio/post" method="post" encType="multipart/form-data">
+          <input type="hidden" name="voltar" value="/estudio" />
+          <label>
+            Título
+            <input name="title" required minLength={3} maxLength={80} />
+          </label>
+          <label>
+            Texto
+            <textarea name="body" required minLength={10} maxLength={2000} rows={4} />
+          </label>
+          <label>
+            Preço em centavos
+            <span className="help">0 deixa o post dentro da assinatura.</span>
+            <input name="priceCents" inputMode="numeric" required defaultValue="0" />
+          </label>
+          <label>
+            Arquivo
+            <span className="help">JPEG, PNG ou WebP até 5 MB. Guardamos o SHA-256 do original.</span>
+            <input name="arquivo" type="file" accept="image/jpeg,image/png,image/webp" />
+          </label>
+          <p className="actions">
+            <button type="submit" className="amber">
+              Enviar para quarentena
+            </button>
+          </p>
+        </form>
+      </section>
+
       <h2>Pedidos em reserva</h2>
-      {data.requests.length === 0 ? <p>Nenhum pedido em reserva.</p> : null}
+      {data.requests.length === 0 ? <p className="meta">Nenhum pedido esperando resposta.</p> : null}
       {data.requests.map((order) => (
-        <article key={order.id} className="quarantine">
+        <article key={order.id} className="panel hold">
           <StateMark status="hold" />
-          <p>{order.offerText}</p>
+          <p style={{ marginTop: "0.6rem" }}>{order.offerText}</p>
           <p>
             <Money cents={order.amountCents} />
           </p>
-          <form action="/api/pedido/aceitar" method="post">
-            <input type="hidden" name="voltar" value="/estudio" />
-            <input type="hidden" name="orderId" value={order.id} />
-            <button type="submit">Aceitar pedido</button>
-          </form>
-          <form action="/api/pedido/recusar" method="post">
-            <input type="hidden" name="voltar" value="/estudio" />
-            <input type="hidden" name="orderId" value={order.id} />
-            <button type="submit">Recusar pedido</button>
-          </form>
+          <div className="actions" style={{ marginTop: "0.6rem" }}>
+            <form action="/api/pedido/aceitar" method="post">
+              <input type="hidden" name="voltar" value="/estudio" />
+              <input type="hidden" name="orderId" value={order.id} />
+              <button type="submit" className="amber">
+                Aceitar pedido
+              </button>
+            </form>
+            <form action="/api/pedido/recusar" method="post">
+              <input type="hidden" name="voltar" value="/estudio" />
+              <input type="hidden" name="orderId" value={order.id} />
+              <button type="submit">Recusar</button>
+            </form>
+          </div>
         </article>
       ))}
-      <h2>Posts</h2>
+
+      <h2>Seus posts</h2>
+      {data.posts.length === 0 ? <p className="meta">Nenhum post ainda.</p> : null}
       {data.posts.map((post) => (
-        <article key={post.id} className={post.status === "quarantine" ? "quarantine" : "my-6"}>
-          <h3>{post.title}</h3>
-          <StateMark status={post.status} />
+        <article key={post.id} className="panel">
+          <div style={{ display: "flex", justifyContent: "space-between", gap: "1rem", alignItems: "baseline", flexWrap: "wrap" }}>
+            <h3>{post.title}</h3>
+            <StateMark status={post.status} />
+          </div>
           <p>{post.body}</p>
           <p>
-            <Money cents={post.priceCents} />
+            {post.priceCents > 0 ? <Money cents={post.priceCents} /> : <span className="meta">dentro da assinatura</span>}
+            {" · "}
+            <span className={hasValidConsent(post.consents) ? "meta" : ""} style={hasValidConsent(post.consents) ? undefined : { color: "var(--color-steel)" }}>
+              {hasValidConsent(post.consents) ? "consentimento registrado" : "falta consentimento"}
+            </span>
           </p>
-          <p className="text-signal">{hasValidConsent(post.consents) ? "consentimento presente" : "falta consentimento"}</p>
           {post.media.map((media) => (
             <img
               key={media.id}
               alt={post.title}
-              className="mt-3 max-w-full"
+              style={{ maxWidth: "100%", borderRadius: "12px", display: "block", margin: "0.6rem 0" }}
               src={`/media/${media.id}?token=${encodeURIComponent(signMediaToken(media.id, user.id))}`}
             />
           ))}
-          <form action="/api/estudio/consentimento" method="post">
-            <input type="hidden" name="voltar" value="/estudio" />
-            <input type="hidden" name="postId" value={post.id} />
-            <label>
-              Quem aparece
-              <select name="kind" defaultValue="self">
-                <option value="self">Eu</option>
-                <option value="other">Outras pessoas</option>
-              </select>
-            </label>
-            <label>
-              Nomes
-              <input name="names" maxLength={200} />
-            </label>
-            <label>
-              Alcance
-              <input name="scope" required minLength={8} maxLength={200} defaultValue="publicação deste estudo no estúdio" />
-            </label>
-            <p>
-              <button type="submit">Registrar consentimento</button>
-            </p>
-          </form>
-          {post.consents.map((consent) => (
-            <form key={consent.id} action="/api/estudio/revogar" method="post">
+          <details style={{ marginTop: "0.8rem" }}>
+            <summary style={{ cursor: "pointer", fontWeight: 600 }}>Consentimento de quem aparece</summary>
+            <form action="/api/estudio/consentimento" method="post">
               <input type="hidden" name="voltar" value="/estudio" />
-              <input type="hidden" name="consentId" value={consent.id} />
-              <p>
-                {consent.kind === "self" ? "Eu" : consent.names} · {consent.scope} ·{" "}
-                <span className="text-signal">{consent.revoked ? "revogado" : "vigente"}</span>
+              <input type="hidden" name="postId" value={post.id} />
+              <label>
+                Quem aparece
+                <select name="kind" defaultValue="self">
+                  <option value="self">Eu</option>
+                  <option value="other">Outras pessoas</option>
+                </select>
+              </label>
+              <label>
+                Nomes
+                <span className="help">Só quando outras pessoas aparecem.</span>
+                <input name="names" maxLength={200} />
+              </label>
+              <label>
+                Alcance
+                <input name="scope" required minLength={8} maxLength={200} defaultValue="publicação deste estudo no estúdio" />
+              </label>
+              <p className="actions">
+                <button type="submit">Registrar consentimento</button>
               </p>
-              {consent.revoked ? null : <button type="submit">Revogar consentimento</button>}
             </form>
-          ))}
+            {post.consents.map((consent) => (
+              <form key={consent.id} action="/api/estudio/revogar" method="post" style={{ marginTop: "0.6rem" }}>
+                <input type="hidden" name="voltar" value="/estudio" />
+                <input type="hidden" name="consentId" value={consent.id} />
+                <p style={{ margin: 0 }}>
+                  {consent.kind === "self" ? "Eu" : consent.names}, {consent.scope}{" "}
+                  <StateMark status={consent.revoked ? "canceled" : "active"} />
+                </p>
+                {consent.revoked ? null : (
+                  <button type="submit" className="quiet" style={{ marginTop: "0.4rem" }}>
+                    Revogar
+                  </button>
+                )}
+              </form>
+            ))}
+          </details>
         </article>
       ))}
     </Shell>

@@ -103,12 +103,13 @@ export async function inbox(userId: string) {
   }
   const people = await db.user.findMany({
     where: { id: { in: [...ids] } },
-    select: { id: true, displayName: true },
+    select: { id: true, displayName: true, avatarName: true },
   });
-  const names = new Map(people.map((person) => [person.id, person.displayName]));
+  const names = new Map(people.map((person) => [person.id, person]));
   return [...ids].map((id) => ({
     id,
-    displayName: names.get(id) ?? "Conta",
+    displayName: names.get(id)?.displayName ?? "Conta",
+    hasAvatar: Boolean(names.get(id)?.avatarName),
     last: messages.find((message) => message.senderId === id || message.recipientId === id)?.body ?? "",
   }));
 }
@@ -116,7 +117,7 @@ export async function inbox(userId: string) {
 export async function thread(userId: string, otherId: string) {
   const other = await db.user.findUnique({
     where: { id: otherId },
-    select: { id: true, displayName: true, deletedAt: true },
+    select: { id: true, displayName: true, deletedAt: true, avatarName: true },
   });
   if (!other || other.deletedAt) return null;
   const messages = await db.chatMessage.findMany({

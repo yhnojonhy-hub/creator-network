@@ -1,5 +1,6 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ErrorNote, Shell } from "@/components/Shell";
+import { Avatar, ErrorNote, Shell } from "@/components/Shell";
 import { pageUser } from "@/server/guard";
 import { thread } from "@/server/read";
 
@@ -17,25 +18,35 @@ export default async function ThreadPage({
   if (!data) notFound();
   return (
     <Shell user={user}>
-      <h1>{data.other.displayName}</h1>
-      <p>A conversa é HTTP. Atualize a página para ver mensagens novas.</p>
-      <ErrorNote message={erro} />
-      <div className="grid gap-3">
-        {data.messages.map((message) => (
-          <p key={message.id}>
-            <strong>{message.senderId === user.id ? "Você" : data.other.displayName}</strong> {message.body}
-          </p>
-        ))}
+      <p style={{ margin: 0 }}>
+        <Link href="/chat" className="meta">
+          Conversas
+        </Link>
+      </p>
+      <div className="photo-row" style={{ margin: "0.4rem 0 1rem" }}>
+        <Avatar userId={data.other.id} name={data.other.displayName} hasAvatar={Boolean(data.other.avatarName)} />
+        <h1 style={{ margin: 0, fontSize: "1.8rem" }}>{data.other.displayName}</h1>
       </div>
-      <form action="/api/chat" method="post">
+      <ErrorNote message={erro} />
+      {data.messages.length === 0 ? <p className="meta">Nenhuma mensagem ainda. A conversa atualiza ao recarregar a página.</p> : null}
+      <ul className="thread">
+        {data.messages.map((message) => (
+          <li key={message.id} className={message.senderId === user.id ? "mine" : undefined}>
+            <p>{message.body || "Mensagem removida."}</p>
+          </li>
+        ))}
+      </ul>
+      <form action="/api/chat" method="post" style={{ maxWidth: "40rem" }}>
         <input type="hidden" name="voltar" value={`/chat/${data.other.id}`} />
         <input type="hidden" name="recipientId" value={data.other.id} />
         <label>
           Mensagem
-          <textarea name="body" required maxLength={2000} />
+          <textarea name="body" required maxLength={2000} rows={3} placeholder={`Escreva para ${data.other.displayName}`} />
         </label>
-        <p>
-          <button type="submit">Enviar</button>
+        <p className="actions">
+          <button type="submit" className="amber">
+            Enviar
+          </button>
         </p>
       </form>
     </Shell>

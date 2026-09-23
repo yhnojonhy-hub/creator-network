@@ -1,13 +1,42 @@
 import "dotenv/config";
-import { randomBytes } from "node:crypto";
-import { mkdir, readdir, rm, writeFile } from "node:fs/promises";
+import { createHash, randomBytes } from "node:crypto";
+import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
+import sharp from "sharp";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { linesSum, orderLedger } from "../src/domain/ledger";
 import { describeOffer } from "../src/domain/offer";
 import { sniffImage } from "../src/domain/sniff";
 import { hashPassword } from "../src/server/password";
+
+async function seedAvatar(file: string): Promise<string> {
+  const bytes = await readFile(path.join(process.cwd(), "public", "seed", file));
+  const output = await sharp(bytes)
+    .rotate()
+    .resize({ width: 512, height: 512, fit: "cover", position: "attention" })
+    .jpeg({ quality: 84, mozjpeg: true })
+    .toBuffer();
+  const name = `av-${randomBytes(16).toString("hex")}.jpg`;
+  await writeFile(path.join(process.cwd(), "storage", name), output);
+  return name;
+}
+
+async function seedMedia(file: string): Promise<{ storageName: string; mime: string; sourceHash: string }> {
+  const bytes = await readFile(path.join(process.cwd(), "public", "seed", file));
+  const output = await sharp(bytes)
+    .rotate()
+    .resize({ width: 1600, height: 1600, fit: "inside", withoutEnlargement: true })
+    .jpeg({ quality: 86, mozjpeg: true })
+    .toBuffer();
+  const storageName = `${randomBytes(16).toString("hex")}.jpg`;
+  await writeFile(path.join(process.cwd(), "storage", storageName), output);
+  return {
+    storageName,
+    mime: "image/jpeg",
+    sourceHash: createHash("sha256").update(output).digest("hex"),
+  };
+}
 
 if (process.env.NODE_ENV === "production") {
   throw new Error("O seed não roda em produção.");
@@ -19,22 +48,18 @@ function requiredEnv(name: string): string {
   return value;
 }
 
-const png = Buffer.from(
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
-  "base64",
-);
-
 const db = new PrismaClient({ adapter: new PrismaPg(process.env.MIGRATE_URL ?? "") });
 
 async function main() {
   const adminPassword = requiredEnv("SEED_ADMIN_PASSWORD");
   const demoPassword = requiredEnv("SEED_DEMO_PASSWORD");
-  if (!sniffImage(png)) throw new Error("PNG de exemplo inválido.");
+  const probe = await readFile(path.join(process.cwd(), "public", "seed", "caderno.jpg"));
+  if (!sniffImage(probe)) throw new Error("Imagem de exemplo inválida.");
 
   const storageDir = path.join("storage");
   await mkdir(storageDir, { recursive: true });
   for (const name of await readdir(storageDir)) {
-    if (/^[a-f0-9]{32}\.(png|jpg|webp)$/.test(name)) {
+    if (/^(av-)?[a-f0-9]{32}\.(png|jpg|webp)$/.test(name)) {
       await rm(path.join(storageDir, name), { force: true });
     }
   }
@@ -74,6 +99,7 @@ async function main() {
       passwordHash: demoHash,
       displayName: "Marina",
       bio: "Acompanho estudos de desenho e anotações de ateliê.",
+      avatarName: await seedAvatar("marina.jpg"),
       ageCheck: { create: { method: "simulada", result: "18+" } },
     },
   });
@@ -86,14 +112,13 @@ async function main() {
       displayName: "Helena",
       bio: "Publico estudos de desenho e anotações de ateliê.",
       subscriptionPriceCents: 2000,
+      avatarName: await seedAvatar("helena.jpg"),
       ageCheck: { create: { method: "simulada", result: "18+" } },
     },
   });
 
-  const publishedName = `${randomBytes(16).toString("hex")}.png`;
-  const quarantineName = `${randomBytes(16).toString("hex")}.png`;
-  await writeFile(path.join(storageDir, publishedName), png);
-  await writeFile(path.join(storageDir, quarantineName), png);
+  const publishedMedia = await seedMedia("caderno.jpg");
+  const quarantineMedia = await seedMedia("studio.jpg");
 
   const published = await db.post.create({
     data: {
@@ -102,7 +127,14 @@ async function main() {
       body: "Um recorte do caderno de desenho, com a luz da tarde na mesa.",
       priceCents: 800,
       status: "published",
-      media: { create: { storageName: publishedName, mime: "image/png", status: "published" } },
+      media: {
+        create: {
+          storageName: publishedMedia.storageName,
+          mime: publishedMedia.mime,
+          sourceHash: publishedMedia.sourceHash,
+          status: "published",
+        },
+      },
       consents: {
         create: {
           userId: helena.id,
@@ -121,7 +153,14 @@ async function main() {
       body: "Um desenho a grafite que ainda espera revisão humana.",
       priceCents: 0,
       status: "quarantine",
-      media: { create: { storageName: quarantineName, mime: "image/png", status: "quarantine" } },
+      media: {
+        create: {
+          storageName: quarantineMedia.storageName,
+          mime: quarantineMedia.mime,
+          sourceHash: quarantineMedia.sourceHash,
+          status: "quarantine",
+        },
+      },
       consents: {
         create: {
           userId: helena.id,

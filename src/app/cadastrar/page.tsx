@@ -10,11 +10,16 @@ export default async function SignupPage({ searchParams }: { searchParams: Promi
         18+ e o horário. Isso não satisfaz um provedor real.
       </p>
       <ErrorNote message={erro} />
-      <form action="/api/auth/cadastrar" method="post">
+      <form action="/api/auth/cadastrar" method="post" encType="multipart/form-data">
         <input type="hidden" name="voltar" value="/cadastrar" />
         <label>
           Nome público
           <input name="displayName" required minLength={2} maxLength={80} autoComplete="nickname" />
+        </label>
+        <label>
+          Imagem da conta
+          <span className="help">Opcional agora. JPEG, PNG ou WebP até 5 MB. Aparece nas conversas e no estúdio.</span>
+          <input name="foto" type="file" accept="image/jpeg,image/png,image/webp" />
         </label>
         <label>
           E-mail
@@ -29,7 +34,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Promi
           <input name="birthDate" type="date" required autoComplete="bday" />
         </label>
         <p>
-          <button type="submit">Criar conta</button>
+          <button type="submit" className="amber">Criar conta</button>
         </p>
       </form>
     </Shell>

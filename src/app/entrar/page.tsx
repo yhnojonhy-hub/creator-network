@@ -17,7 +17,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           <input name="password" type="password" required autoComplete="current-password" />
         </label>
         <p>
-          <button type="submit">Entrar</button>
+          <button type="submit" className="amber">Entrar</button>
         </p>
       </form>
     </Shell>
