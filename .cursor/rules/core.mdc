@@ -1,0 +1,19 @@
+---
+description: Escopo, idioma e git deste estúdio
+alwaysApply: true
+---
+
+# Escopo
+
+- Fale em português.
+- Não commite nem faça push sem pedido explícito.
+- Segredos ficam no `.env`. O exemplo vai em `.env.example`.
+- Idade, pagamento e KYC são simulados.
+
+```ts
+// bom
+throw new HttpError(401, "E-mail ou senha não conferem.");
+
+// ruim
+throw new HttpError(401, "Senha incorreta para este e-mail.");
+```

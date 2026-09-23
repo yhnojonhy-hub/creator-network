@@ -1,0 +1,23 @@
+---
+description: TypeScript estrito no app
+globs: "**/*.{ts,tsx}"
+alwaysApply: false
+---
+
+# TypeScript
+
+- Mantenha `strict`. Não introduza `any`.
+- Regra de negócio pura fica em `src/domain` e é testada sem banco.
+- Acesso a Postgres fica em `src/server`.
+
+```ts
+// bom
+export function isPublicPostVisible(status: string): boolean {
+  return status === "published";
+}
+
+// ruim
+export function isPublicPostVisible(status: any) {
+  return status !== "quarantine";
+}
+```

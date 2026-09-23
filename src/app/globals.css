@@ -1,0 +1,108 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-charcoal: #121417;
+  --color-linen: #e7e2d8;
+  --color-signal: #2f6fed;
+  --font-sans: var(--font-familjen), "Familjen Grotesk", sans-serif;
+  --font-display: var(--font-source-serif), "Source Serif 4", serif;
+}
+
+html {
+  background: #121417;
+  color: #e7e2d8;
+  color-scheme: dark;
+  accent-color: #e7e2d8;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-size: 1.05rem;
+  line-height: 1.5;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display), "Source Serif 4", serif;
+  font-weight: 460;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+}
+
+a {
+  color: inherit;
+}
+
+button,
+.button {
+  font: inherit;
+  color: #e7e2d8;
+  background: transparent;
+  border: 1px solid #e7e2d8;
+  padding: 0.65rem 0.9rem;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid #e7e2d8;
+  outline-offset: 3px;
+}
+
+input:not([type="checkbox"]),
+select,
+textarea {
+  font: inherit;
+  width: 100%;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid #e7e2d8;
+  padding: 0.5rem 0;
+  border-radius: 0;
+}
+
+label {
+  display: block;
+  margin-top: 1rem;
+}
+
+.balance-figure {
+  font-family: var(--font-display), "Source Serif 4", serif;
+  font-size: clamp(3.2rem, 8vw, 5rem);
+  line-height: 0.95;
+  color: #2f6fed;
+  margin: 0;
+}
+
+.quarantine {
+  border-left: 4px solid #2f6fed;
+  padding-left: 1rem;
+  margin: 1.25rem 0;
+}
+
+.erro {
+  border-left: 4px solid #2f6fed;
+  padding-left: 0.8rem;
+  color: #2f6fed;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

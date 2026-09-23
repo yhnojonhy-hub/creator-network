@@ -1,0 +1,202 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                     String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  email                  String    @unique
+  passwordHash           String
+  role                   String    @default("fan")
+  creatorStatus          String    @default("none")
+  displayName            String    @default("")
+  bio                    String    @default("")
+  subscriptionPriceCents Int       @default(2000)
+  createdAt              DateTime  @default(now())
+  deletedAt              DateTime?
+
+  ageCheck         AgeCheck?
+  sessions         Session[]
+  posts            Post[]
+  consents         Consent[]
+  follows          Follow[]       @relation("FanFollows")
+  followers        Follow[]       @relation("CreatorFollowers")
+  subscriptions    Subscription[] @relation("FanSubscriptions")
+  subscribers      Subscription[] @relation("CreatorSubscriptions")
+  purchases        Order[]        @relation("BuyerOrders")
+  sales            Order[]        @relation("CreatorSales")
+  ledgerEntries    LedgerEntry[]  @relation("LedgerOwner")
+  payouts          Payout[]
+  messagesSent     ChatMessage[]  @relation("ChatSender")
+  messagesReceived ChatMessage[]  @relation("ChatRecipient")
+  auditEvents      AuditEvent[]
+}
+
+model Session {
+  id        String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  userId    String   @db.Uuid
+  tokenHash String   @unique
+  expiresAt DateTime
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model LoginLock {
+  email       String    @id
+  failures    Int       @default(0)
+  lockedUntil DateTime?
+}
+
+model AgeCheck {
+  userId    String   @id @db.Uuid
+  method    String
+  result    String
+  checkedAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Post {
+  id         String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  creatorId  String    @db.Uuid
+  title      String
+  body       String
+  priceCents Int
+  status     String    @default("quarantine")
+  createdAt  DateTime  @default(now())
+  creator    User      @relation(fields: [creatorId], references: [id], onDelete: Restrict)
+  media      Media[]
+  consents   Consent[]
+  orders     Order[]
+}
+
+model Media {
+  id          String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  postId      String   @db.Uuid
+  storageName String   @unique
+  mime        String
+  /// SHA-256 do arquivo enviado, para procedência. Não é marca forense.
+  sourceHash  String   @default("")
+  status      String   @default("quarantine")
+  createdAt   DateTime @default(now())
+  post        Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+}
+
+model Consent {
+  id        String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  postId    String   @db.Uuid
+  userId    String   @db.Uuid
+  kind      String
+  names     String   @default("")
+  scope     String
+  revoked   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+}
+
+model Follow {
+  id        String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  fanId     String   @db.Uuid
+  creatorId String   @db.Uuid
+  createdAt DateTime @default(now())
+  fan       User     @relation("FanFollows", fields: [fanId], references: [id], onDelete: Cascade)
+  creator   User     @relation("CreatorFollowers", fields: [creatorId], references: [id], onDelete: Cascade)
+
+  @@unique([fanId, creatorId])
+}
+
+model Subscription {
+  id         String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  fanId      String    @db.Uuid
+  creatorId  String    @db.Uuid
+  status     String    @default("active")
+  endsAt     DateTime?
+  priceCents Int
+  createdAt  DateTime  @default(now())
+  fan        User      @relation("FanSubscriptions", fields: [fanId], references: [id], onDelete: Restrict)
+  creator    User      @relation("CreatorSubscriptions", fields: [creatorId], references: [id], onDelete: Restrict)
+
+  @@unique([fanId, creatorId])
+}
+
+model Order {
+  id          String        @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  buyerId     String        @db.Uuid
+  creatorId   String        @db.Uuid
+  postId      String?       @db.Uuid
+  kind        String
+  amountCents Int
+  offerText   String
+  status      String
+  createdAt   DateTime      @default(now())
+  buyer       User          @relation("BuyerOrders", fields: [buyerId], references: [id], onDelete: Restrict)
+  creator     User          @relation("CreatorSales", fields: [creatorId], references: [id], onDelete: Restrict)
+  post        Post?         @relation(fields: [postId], references: [id], onDelete: Restrict)
+  entries     LedgerEntry[]
+
+  @@index([buyerId, createdAt])
+}
+
+model LedgerEntry {
+  id          String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  orderId     String?  @db.Uuid
+  payoutId    String?  @db.Uuid
+  account     String
+  ownerId     String?  @db.Uuid
+  amountCents Int
+  posted      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  order       Order?   @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  payout      Payout?  @relation(fields: [payoutId], references: [id], onDelete: Restrict)
+  owner       User?    @relation("LedgerOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+
+  @@index([ownerId, account, posted])
+}
+
+model Payout {
+  id          String        @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  creatorId   String        @db.Uuid
+  amountCents Int
+  createdAt   DateTime      @default(now())
+  creator     User          @relation(fields: [creatorId], references: [id], onDelete: Restrict)
+  entries     LedgerEntry[]
+}
+
+model ChatMessage {
+  id          String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  senderId    String   @db.Uuid
+  recipientId String   @db.Uuid
+  body        String
+  createdAt   DateTime @default(now())
+  sender      User     @relation("ChatSender", fields: [senderId], references: [id], onDelete: Restrict)
+  recipient   User     @relation("ChatRecipient", fields: [recipientId], references: [id], onDelete: Restrict)
+
+  @@index([senderId, recipientId])
+}
+
+model AuditEvent {
+  id         String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  actorId    String   @db.Uuid
+  action     String
+  targetType String
+  targetId   String
+  reason     String
+  beforeHash String
+  afterHash  String
+  createdAt  DateTime @default(now())
+  actor      User     @relation(fields: [actorId], references: [id], onDelete: Restrict)
+}
+
+model IdempotencyKey {
+  id        String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  userId    String   @db.Uuid
+  scope     String
+  key       String
+  orderId   String?  @db.Uuid
+  createdAt DateTime @default(now())
+
+  @@unique([userId, scope, key])
+}
